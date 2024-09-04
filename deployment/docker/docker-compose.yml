@@ -5,23 +5,25 @@ services:
     ports:
       - 9101:9101
     command:
-      -  "--metric-count=20"
+      -  "--metric-count=1"
       -  "--series-count=500"
-      -  "--label-count=25"
+      -  "--label-count=20"
+      -  "--series-interval=20000000"
+      -  "--metric-interval=100009999"
       -  "--port=9101"
     networks:
       - vm_net
     restart: always
-  vmagent-no-aggregation:
-    container_name: vmagent-no-aggregation
+  vmagent-monitoring:
+    container_name: vmagent-monitoring
     image: victoriametrics/vmagent:v1.103.0
     depends_on:
       - "victoriametrics"
     ports:
       - 8429
     volumes:
-      - vmagentdata-no-aggregation:/vmagentdata
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - vmagent-monitoring:/vmagentdata
+      - ./monitoring.yml:/etc/prometheus/prometheus.yml
     command:
       - "--promscrape.config=/etc/prometheus/prometheus.yml"
       - "--remoteWrite.url=http://victoriametrics:8428/api/v1/write"
@@ -43,9 +45,29 @@ services:
       - "--promscrape.config=/etc/prometheus/prometheus.yml"
       - "--streamAggr.config=/etc/prometheus/stream_aggr_config.yml"
       - "--remoteWrite.url=http://victoriametrics:8428/api/v1/write"
+      - "--promscrape.config.strictParse=false"
     networks:
       - vm_net
     restart: always
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v2.54.1
+    depends_on:
+      - "victoriametrics"
+    ports:
+      - 9090:9090
+    volumes:
+      - prometheus:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./rules.yml:/etc/prometheus/rules.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - vm_net
+    restart: always
+
   # VictoriaMetrics instance, a single process responsible for
   # storing metrics and serve read requests.
   victoriametrics:
@@ -81,50 +103,9 @@ services:
       - vm_net
     restart: always
 
-  # vmalert executes alerting and recording rules
-  vmalert:
-    container_name: vmalert
-    image: victoriametrics/vmalert:v1.103.0
-    depends_on:
-      - "victoriametrics"
-      - "alertmanager"
-    ports:
-      - 8880:8880
-    volumes:
-      - ./alerts.yml:/etc/alerts/alerts.yml
-      - ./alerts-health.yml:/etc/alerts/alerts-health.yml
-      - ./alerts-vmagent.yml:/etc/alerts/alerts-vmagent.yml
-      - ./alerts-vmalert.yml:/etc/alerts/alerts-vmalert.yml
-    command:
-      - "--datasource.url=http://victoriametrics:8428/"
-      - "--remoteRead.url=http://victoriametrics:8428/"
-      - "--remoteWrite.url=http://victoriametrics:8428/"
-      - "--notifier.url=http://alertmanager:9093/"
-      - "--rule=/etc/alerts/*.yml"
-      # display source of alerts in grafana
-      - "--external.url=http://127.0.0.1:3000" #grafana outside container
-      - '--external.alert.source=explore?orgId=1&left={"datasource":"VictoriaMetrics","queries":[{"expr":{{.Expr|jsonEscape|queryEscape}},"refId":"A"}],"range":{"from":"{{ .ActiveAt.UnixMilli }}","to":"now"}}'
-    networks:
-      - vm_net
-    restart: always
-
-  # alertmanager receives alerting notifications from vmalert
-  # and distributes them according to --config.file.
-  alertmanager:
-    container_name: alertmanager
-    image: prom/alertmanager:v0.27.0
-    volumes:
-      - ./alertmanager.yml:/config/alertmanager.yml
-    command:
-      - "--config.file=/config/alertmanager.yml"
-    ports:
-      - 9093:9093
-    networks:
-      - vm_net
-    restart: always
-
 volumes:
-  vmagentdata-no-aggregation: {}
+  prometheus: {}
+  vmagent-monitoring: {}
   vmagentdata-with-aggregation: {}
   vmdata: {}
   grafanadata: {}

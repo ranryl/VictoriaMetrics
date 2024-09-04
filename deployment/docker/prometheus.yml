@@ -1,16 +1,79 @@
 global:
-  scrape_interval: 5s
+  scrape_interval: 15s
+  evaluation_interval: 5m
+
+rule_files:
+  - "rules.yml"
+
+remote_write:
+  - url: http://victoriametrics:8428/api/v1/write
+    write_relabel_configs:
+      - source_labels: [ __name__ ]
+        regex: .*sum_over_time.*
+        action: keep
+    queue_config:
+      max_samples_per_send: 10000
+      capacity: 20000
+      max_shards: 30
 
 scrape_configs:
-  - job_name: 'vmagent'
+  - job_name: 'avalanche1'
     static_configs:
-      - targets: ['vmagent-no-aggregation:8429', 'vmagent-with-aggregation:8429']
-  - job_name: 'vmalert'
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche2'
     static_configs:
-      - targets: ['vmalert:8880']
-  - job_name: 'victoriametrics'
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche3'
     static_configs:
-      - targets: ['victoriametrics:8428']
-  - job_name: 'avalanche'
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche4'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche5'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche6'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche7'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche8'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche9'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche10'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche11'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche12'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche13'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche14'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche15'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche16'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche17'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche18'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche19'
+    static_configs:
+      - targets: ['avalanche:9101']
+  - job_name: 'avalanche20'
     static_configs:
       - targets: ['avalanche:9101']

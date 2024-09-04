@@ -1,0 +1,5 @@
+groups:
+  - name: demo
+    rules:
+      - record: cycle:avalanche:sum_over_time:5m
+        expr: sum(sum_over_time(avalanche_metric_mmmmm_0_0[5m])) by(cycle_id)
