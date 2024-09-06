@@ -30,6 +30,26 @@ services:
     networks:
       - vm_net
     restart: always
+
+  vmagent-without-aggregation:
+    container_name: vmagentdata-without-aggregation
+    image: victoriametrics/vmagent:v1.103.0
+    depends_on:
+      - "victoriametrics"
+    ports:
+      - 8429
+    volumes:
+      - vmagentdata-without-aggregation:/vmagentdata
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--promscrape.config=/etc/prometheus/prometheus.yml"
+      - "--remoteWrite.url=http://victoriametrics:8428/api/v1/write"
+      - "--promscrape.config.strictParse=false"
+      - "--promscrape.maxScrapeSize=9999999999999"
+    networks:
+      - vm_net
+    restart: always
+
   vmagent-with-aggregation:
     container_name: vmagent-with-aggregation
     image: victoriametrics/vmagent:v1.103.0
@@ -46,6 +66,7 @@ services:
       - "--streamAggr.config=/etc/prometheus/stream_aggr_config.yml"
       - "--remoteWrite.url=http://victoriametrics:8428/api/v1/write"
       - "--promscrape.config.strictParse=false"
+      - "--promscrape.maxScrapeSize=9999999999999"
     networks:
       - vm_net
     restart: always
@@ -106,6 +127,7 @@ services:
 volumes:
   prometheus: {}
   vmagent-monitoring: {}
+  vmagentdata-without-aggregation: {}
   vmagentdata-with-aggregation: {}
   vmdata: {}
   grafanadata: {}

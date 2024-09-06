@@ -11,6 +11,9 @@ scrape_configs:
 - job_name: 'vmagent-with-aggregation'
   static_configs:
     - targets: ['vmagent-with-aggregation:8429']
+- job_name: 'vmagent-without-aggregation'
+  static_configs:
+    - targets: ['vmagent-without-aggregation:8429']
 - job_name: 'victoriametrics'
   static_configs:
     - targets: ['victoriametrics:8428']
