@@ -20,6 +20,8 @@ See also [LTS releases](https://docs.victoriametrics.com/lts-releases/).
 
 **Update note 1: `*.passwordFile` and similar flags are trimming trailing whitespaces at the end of content. If authorization check performed with `*.passwordFile` content, make sure to update authorization settings to not include trailing whitespaces before the upgrade. In case of [operator](https://docs.victoriametrics.com/operator/) managed installations, make sure to update operator version to [v0.48.*](https://docs.victoriametrics.com/operator/changelog/#v0480---25-sep-2024). See [this issue](https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6986) for the details. This change reverts behavior introduced at [v1.102.0-rc2](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.102.0-rc2) release**
 
+**Update note 2: vmalert's deprecated cmd-line flags `-datasource.lookback`, `datasource.queryTimeAlignment` and `remoteRead.ignoreRestoreErrors` were removed. These flags were marked as deprecated and were no-op for last 6 months.**
+
 * SECURITY: upgrade Go builder from Go1.23.0 to Go1.23.1. See the list of issues addressed in [Go1.23.1](https://github.com/golang/go/issues?q=milestone%3AGo1.23.1+label%3ACherryPickApproved).
 * SECURITY: upgrade base docker image (Alpine) from 3.20.2 to 3.20.3. See [alpine 3.20.3 release notes](https://alpinelinux.org/posts/Alpine-3.17.10-3.18.9-3.19.4-3.20.3-released.html).
 
@@ -55,6 +57,8 @@ See also [LTS releases](https://docs.victoriametrics.com/lts-releases/).
 * BUGFIX: all VictoriaMetrics components: increase default value of `-loggerMaxArgLen` cmd-line flag from 1000 to 5000. This should improve visibility on errors produced by very long queries.
 * BUGFIX: all VictoriaMetrics components: trim trailing spaces when reading content from `*.passwordFile` and similar flags. It reverts changes introduced at [v1.102.0-rc2](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.102.0-rc2) release. See [this issue](https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6986) for details.
 * BUGFIX: [Single-node VictoriaMetrics](https://docs.victoriametrics.com/) and `vmstorage` in [VictoriaMetrics cluster](https://docs.victoriametrics.com/cluster-victoriametrics/): introduce the `-search.maxDeleteSeries` command line flag to limit the number of series that can be deleted by a single `/api/v1/admin/tsdb/delete_series` call. Previously, one could delete any number of series and if this number was big (millions) the deletion could result in OOM. See this [issue](https://github.com/VictoriaMetrics/VictoriaMetrics/issues/7027) for details.
+
+* DEPRECATION: [vmalert](https://docs.victoriametrics.com/vmalert/): remove deprecated cmd-line flags `-datasource.lookback`, `datasource.queryTimeAlignment` and `remoteRead.ignoreRestoreErrors`. Those flags were all deprecated since [v1.100.0](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.100.0).
 
 ## [v1.103.0](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.103.0)
 
@@ -118,8 +122,6 @@ The v1.102.x line will be supported for at least 12 months since [v1.102.0](http
 * BUGFIX: [Single-node VictoriaMetrics](https://docs.victoriametrics.com/) and `vmstorage` in [VictoriaMetrics cluster](https://docs.victoriametrics.com/cluster-victoriametrics/): Removes the fallback to global index search when the search using per-day index fails due to too many time series found (the global index will fail anyway with the same error and so the fallback is not needed and only slows down the search). See [this](https://github.com/VictoriaMetrics/VictoriaMetrics/pull/6836) for details.
 * BUGFIX: [Single-node VictoriaMetrics](https://docs.victoriametrics.com/) and `vmstorage` in [VictoriaMetrics cluster](https://docs.victoriametrics.com/cluster-victoriametrics/): fix metric names registering in the per-day index for new dates for existing time series when making calls to `/tags/tagSeries` and `/tags/tagMultiSeries` handlers of [Graphite API](https://docs.victoriametrics.com/#graphite-api-usage). See [this](https://github.com/VictoriaMetrics/VictoriaMetrics/pull/6872/) for details.
 * BUGFIX: [Single-node VictoriaMetrics](https://docs.victoriametrics.com/) and `vmstorage` in [VictoriaMetrics cluster](https://docs.victoriametrics.com/cluster-victoriametrics/): properly ignore deleted metrics when applying [retention filters](https://docs.victoriametrics.com/#retention-filters) and [downsampling](https://docs.victoriametrics.com/#downsampling). See [this](https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6891) issue for the details.
-
-* DEPRECATION: [vmalert](https://docs.victoriametrics.com/vmalert/): remove deprecated cmd-line flags `-datasource.lookback`, `datasource.queryTimeAlignment` and `remoteRead.ignoreRestoreErrors`. Those flags were all deprecated before [v1.101.0](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.101.0).
 
 ## [v1.102.1](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.102.1)
 
