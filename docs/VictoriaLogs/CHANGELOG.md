@@ -15,6 +15,28 @@ according to [these docs](https://docs.victoriametrics.com/victorialogs/quicksta
 
 ## tip
 
+## [v0.35.0](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v0.35.0-victorialogs)
+
+* FEATURE: [vlogscli](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/): add ability to live tail query results - see [these docs](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/#live-tailing).
+* FEATURE: [vlogscli](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/): add compact output mode for query results. It can be enabled by typing `\c` and then pressing `enter`. See [these docs](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/#output-modes).
+* FEATURE: [vlogscli](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/): add `-accountID` and `-projectID` command-line flags for setting `AccountID` and `ProjectID` values when querying the specific [tenants](https://docs.victoriametrics.com/victorialogs/#multitenancy).
+
+## [v0.34.0](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v0.34.0-victorialogs)
+
+Released at 2024-10-08
+
+* FEATURE: [vlogscli](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/): add ability to display results in `logfmt` mode, single-line and multi-line JSON modes according [these docs](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/#output-modes).
+* FEATURE: [vlogscli](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/): preserve `less` output after the exit from scrolling mode. This should help re-using previous query results in subsequent queries.
+* FEATURE: add [`len` pipe](https://docs.victoriametrics.com/victorialogs/logsql/#len-pipe) for calculating the length for the given [log field](https://docs.victoriametrics.com/victorialogs/keyconcepts/#data-model) value in bytes.
+
+## [v0.33.0](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v0.33.0-victorialogs)
+
+Released at 2024-10-01
+
+* FEATURE: add interactive command-line tool for querying VictoriaLogs - [`vlogscli`](https://docs.victoriametrics.com/victorialogs/querying/vlogscli/).
+
+* BUGFIX: [`count_uniq` stats function](https://docs.victoriametrics.com/victorialogs/logsql/#count_uniq-stats): do not count field values, which aren't matched by the used filters. See [this issue](https://github.com/VictoriaMetrics/VictoriaMetrics/issues/7152).
+
 ## [v0.32.1](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v0.32.1-victorialogs)
 
 Released at 2024-09-30

@@ -1359,7 +1359,7 @@ Additionally, VictoriaMetrics can accept metrics via the following popular data 
 * `/api/v1/import/prometheus` for importing data in Prometheus exposition format and in [Pushgateway format](https://github.com/prometheus/pushgateway#url).
   See [these docs](#how-to-import-data-in-prometheus-exposition-format) for details.
 
-Please note, most of the ingestion APIs (except [Prometheus remote_write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write))
+Please note, most of the ingestion APIs (except [Prometheus remote_write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write) and [OpenTelemetry](#sending-data-via-opentelemetry))
 are optimized for performance and processes data in a streaming fashion.
 It means that client can transfer unlimited amount of data through the open connection. Because of this, import APIs
 may not return parsing errors to the client, as it is expected for data stream to be not interrupted. 
@@ -1538,10 +1538,15 @@ VictoriaMetrics supports data ingestion via [OpenTelemetry protocol for metrics]
 VictoriaMetrics expects `protobuf`-encoded requests at `/opentelemetry/v1/metrics`.
 Set HTTP request header `Content-Encoding: gzip` when sending gzip-compressed data to `/opentelemetry/v1/metrics`.
 
+VictoriaMetrics supports only [cumulative temporality](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#temporality)
+for received measurements. The number of dropped unsupported samples is exposed via `vm_protoparser_rows_dropped_total{type="opentelemetry"` metric.
+
 VictoriaMetrics stores the ingested OpenTelemetry [raw samples](https://docs.victoriametrics.com/keyconcepts/#raw-samples) as is without any transformations.
 Pass `-opentelemetry.usePrometheusNaming` command-line flag to VictoriaMetrics for automatic conversion of metric names and labels into Prometheus-compatible format.
+OpenTelemetry [exponential histogram](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exponentialhistogram) is automatically converted 
+to [VictoriaMetrics histogram format](https://valyala.medium.com/improving-histogram-usability-for-prometheus-and-grafana-bc7e5df0e350).
 
-Using the following exporter configuration in the opentelemetry collector will allow you to send metrics into VictoriaMetrics:
+Using the following exporter configuration in the OpenTelemetry collector will allow you to send metrics into VictoriaMetrics:
 
 ```yaml
 exporters:
@@ -3038,6 +3043,8 @@ Pass `-help` to VictoriaMetrics in order to see the list of supported command-li
      How frequently to reload the full state from Kubernetes API server (default 30m0s)
   -promscrape.kubernetes.attachNodeMetadataAll
      Whether to set attach_metadata.node=true for all the kubernetes_sd_configs at -promscrape.config . It is possible to set attach_metadata.node=false individually per each kubernetes_sd_configs . See https://docs.victoriametrics.com/sd_configs/#kubernetes_sd_configs
+  -promscrape.kubernetes.useHTTP2Client
+     Whether to use HTTP/2 client for connection to Kubernetes API server. This may reduce amount of concurrent connections to API server when watching for a big number of Kubernetes objects.
   -promscrape.kubernetesSDCheckInterval duration
      Interval for checking for changes in Kubernetes API server. This works only if kubernetes_sd_configs is configured in '-promscrape.config' file. See https://docs.victoriametrics.com/sd_configs/#kubernetes_sd_configs for details (default 30s)
   -promscrape.kumaSDCheckInterval duration
