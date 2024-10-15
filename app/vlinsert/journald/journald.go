@@ -1,6 +1,8 @@
 package journald
 
 import (
+	"bytes"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
@@ -29,8 +31,8 @@ var (
 		"See the list of allowed fields at https://www.freedesktop.org/software/systemd/man/latest/systemd.journal-fields.html.")
 	journaldTimeField = flag.String("journald.timeField", "__REALTIME_TIMESTAMP", "Journal field to be used as time field. "+
 		"See the list of allowed fields at https://www.freedesktop.org/software/systemd/man/latest/systemd.journal-fields.html.")
-	journaldTenantID            = flag.String("journald.tenantID", "0:0", "TenantID for logs ingested via the Journald endpoint.")
-	journaldIgnoreEntryMetadata = flag.Bool("journald.ignoreEntryMetadata", true, "Ignore journal entry fields, which with double underscores.")
+	journaldTenantID             = flag.String("journald.tenantID", "0:0", "TenantID for logs ingested via the Journald endpoint.")
+	journaldIncludeEntryMetadata = flag.Bool("journald.includeEntryMetadata", false, "Include journal entry fields, which with double underscores.")
 )
 
 func getCommonParams(r *http.Request) (*insertutils.CommonParams, error) {
@@ -73,6 +75,8 @@ func RequestHandler(path string, w http.ResponseWriter, r *http.Request) bool {
 	}
 }
 
+// handleJournald parses Journal binary entries
+// See https://systemd.io/JOURNAL_EXPORT_FORMATS/#journal-export-format
 func handleJournald(r *http.Request, w http.ResponseWriter) {
 	startTime := time.Now()
 	requestsJournaldTotal.Inc()
@@ -135,50 +139,77 @@ var (
 )
 
 func parseJournaldRequest(data []byte, lmp insertutils.LogMessageProcessor, cp *insertutils.CommonParams) (int, error) {
-	dataStr := bytesutil.ToUnsafeString(data)
 	var fields []logstorage.Field
 	var ts int64
+	var size uint64
 	var err error
-	var rowsIngested, lastIdx int
+	var rowsIngested int
 	var name, value string
-	for i, char := range dataStr {
-		if char == '=' && len(name) == 0 {
-			name = dataStr[lastIdx:i]
-			if name == cp.MsgField {
-				name = "_msg"
-			}
-			lastIdx = i + 1
-		} else if char == '\n' || i == len(dataStr)-1 {
-			if len(name) == 0 && len(fields) > 0 {
-				lmp.AddRow(ts*1e3, fields)
+	var line []byte
+
+	currentTimestamp := time.Now().UnixNano()
+
+	for len(data) > 0 {
+		idx := bytes.IndexByte(data, '\n')
+		if idx > 0 {
+			line = data[:idx]
+			data = data[idx+1:]
+		} else if idx == 0 {
+			data = data[1:]
+			if len(fields) > 0 {
+				if ts == 0 {
+					ts = currentTimestamp
+				}
+				lmp.AddRow(ts, fields)
 				rowsIngested++
 				fields = fields[:0]
-			} else {
-				if i == len(dataStr)-1 {
-					value = dataStr[lastIdx:]
-				} else {
-					value = dataStr[lastIdx:i]
-				}
-				ignoreField := *journaldIgnoreEntryMetadata && strings.HasPrefix(name, "__")
-				if name == cp.TimeField {
-					// extract timetamp in microseconds
-					ts, err = strconv.ParseInt(value, 10, 64)
-					if err != nil {
-						return 0, fmt.Errorf("failed to parse Journald timestamp, %w", err)
-					}
-				} else if !ignoreField {
-					fields = append(fields, logstorage.Field{
-						Name:  name,
-						Value: value,
-					})
-				}
-				name = ""
 			}
-			lastIdx = i + 1
+			continue
+		} else {
+			line = data
+			data = data[:0]
+		}
+		idx = bytes.IndexByte(line, '=')
+		if idx > 0 {
+			name = bytesutil.ToUnsafeString(line[:idx])
+			value = bytesutil.ToUnsafeString(line[idx+1:])
+		} else {
+			name = bytesutil.ToUnsafeString(line)
+			idx, err := binary.Decode(data, binary.LittleEndian, &size)
+			if err != nil {
+				return rowsIngested, fmt.Errorf("failed to extract binary field %q value size: %w", name, err)
+			}
+			if int(size) > len(data[idx:]) {
+				return rowsIngested, fmt.Errorf("invalid binary data size decoded %d", size)
+			}
+			value = bytesutil.ToUnsafeString(data[idx:size])
+			data = data[idx+int(size)+1:]
+		}
+		if name == cp.TimeField {
+			ts, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse Journald timestamp, %w", err)
+			}
+			ts *= 1e3
+			continue
+		}
+
+		if name == cp.MsgField {
+			name = "_msg"
+		}
+
+		if *journaldIncludeEntryMetadata || !strings.HasPrefix(name, "__") {
+			fields = append(fields, logstorage.Field{
+				Name:  name,
+				Value: value,
+			})
 		}
 	}
 	if len(fields) > 0 {
-		lmp.AddRow(ts*1e3, fields)
+		if ts == 0 {
+			ts = currentTimestamp
+		}
+		lmp.AddRow(ts, fields)
 		rowsIngested++
 	}
 	return rowsIngested, nil
