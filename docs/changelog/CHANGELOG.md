@@ -18,6 +18,8 @@ See also [LTS releases](https://docs.victoriametrics.com/lts-releases/).
 
 ## tip
 
+* BUGFIX: [vmctl](https://docs.victoriametrics.com/vmctl/): fixed match expression for `vmctl vm-native` with `--vm-native-disable-per-metric-migration` flag enabled. See [this PR](https://github.com/VictoriaMetrics/VictoriaMetrics/issues/7309).
+
 ## [v1.105.0](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.105.0)
 
 Released at 2024-10-21
