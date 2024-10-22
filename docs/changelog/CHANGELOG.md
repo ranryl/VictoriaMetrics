@@ -18,6 +18,8 @@ See also [LTS releases](https://docs.victoriametrics.com/lts-releases/).
 
 ## tip
 
+* FEATURE: [vmagent](https://docs.victoriametrics.com/vmagent/) and [Single-node VictoriaMetrics](https://docs.victoriametrics.com/): adds `metric_relabel_configs` and `relabel_configs` to the `global` section of scrapping configuration. See [this issue](https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6966) for details.
+
 ## [v1.105.0](https://github.com/VictoriaMetrics/VictoriaMetrics/releases/tag/v1.105.0)
 
 Released at 2024-10-21
