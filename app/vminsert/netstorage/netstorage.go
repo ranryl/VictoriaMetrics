@@ -66,6 +66,7 @@ func (sn *storageNode) push(snb *storageNodesBucket, buf []byte, rows int) error
 		logger.Panicf("BUG: len(buf)=%d cannot exceed %d", len(buf), maxBufSizePerStorageNode)
 	}
 	sn.rowsPushed.Add(rows)
+	// 将数据append到sn的bufrows中
 	if sn.trySendBuf(buf, rows) {
 		// Fast path - the buffer is successfully sent to sn.
 		return nil
@@ -76,6 +77,7 @@ func (sn *storageNode) push(snb *storageNodesBucket, buf []byte, rows int) error
 			"See vm_rpc_rows_dropped_on_overload_total metric at /metrics page", sn.dialer.Addr())
 		return nil
 	}
+	// 重新获取hash环上的storage node，并写入数据到该storage node的bufrows中
 	// Slow path - sn cannot accept buf now, so re-route it to other vmstorage nodes.
 	if err := sn.rerouteBufToOtherStorageNodes(snb, buf, rows); err != nil {
 		return fmt.Errorf("error when re-routing rows from %s: %w", sn.dialer.Addr(), err)
@@ -120,6 +122,7 @@ again:
 
 	if len(sn.br.buf)+len(buf) <= maxBufSizePerStorageNode {
 		// Fast path: the buf contents fits sn.buf.
+		// 将数据写入storage node的bufRow
 		sn.br.buf = append(sn.br.buf, buf...)
 		sn.br.rows += rows
 		sn.brLock.Unlock()
@@ -140,11 +143,13 @@ again:
 }
 
 func (sn *storageNode) run(snb *storageNodesBucket, snIdx int) {
+	// 复制因子校验
 	replicas := *replicationFactor
 	if replicas <= 0 {
 		replicas = 1
 	}
 	sns := snb.sns
+	// 复制因子不能超过stroageNode节点数，超过了没有意义
 	if replicas > len(sns) {
 		replicas = len(sns)
 	}
@@ -155,7 +160,7 @@ func (sn *storageNode) run(snb *storageNodesBucket, snIdx int) {
 		sn.readOnlyChecker()
 	}()
 	defer sn.readOnlyCheckerWG.Wait()
-
+	// 阻塞时间
 	d := timeutil.AddJitterToDuration(time.Millisecond * 200)
 	ticker := time.NewTicker(d)
 	defer ticker.Stop()
@@ -166,6 +171,7 @@ func (sn *storageNode) run(snb *storageNodesBucket, snIdx int) {
 		sn.brLock.Lock()
 		waitForNewData := len(sn.br.buf) == 0
 		sn.brLock.Unlock()
+		// 阻塞ticker时间（200ms）
 		if waitForNewData {
 			select {
 			case <-sn.stopCh:
@@ -175,7 +181,8 @@ func (sn *storageNode) run(snb *storageNodesBucket, snIdx int) {
 			case <-ticker.C:
 			}
 		}
-
+		// 加锁，交换sn.br和br的值，且在下面取完br的值会reset
+		// 其实是在两个br地址来回切换，往一个br地址写数据，从另外一个br读数据
 		sn.brLock.Lock()
 		sn.br, br = br, sn.br
 		sn.brCond.Broadcast()
@@ -192,6 +199,7 @@ func (sn *storageNode) run(snb *storageNodesBucket, snIdx int) {
 			// Nothing to send.
 			continue
 		}
+		// 发送bufRow数据到storage，从snIdx id开始，发送replicas副本次数
 		// Send br to replicas storage nodes starting from snIdx.
 		for !sendBufToReplicasNonblocking(snb, &br, snIdx, replicas) {
 			d := timeutil.AddJitterToDuration(time.Millisecond * 200)
@@ -206,17 +214,21 @@ func (sn *storageNode) run(snb *storageNodesBucket, snIdx int) {
 				sn.checkHealth()
 			}
 		}
+		// 重置br的数据，供下次读取时赋值给sn.br
 		br.reset()
 	}
 }
 
 func sendBufToReplicasNonblocking(snb *storageNodesBucket, br *bufRows, snIdx, replicas int) bool {
+	// 保存使用过的sn
 	usedStorageNodes := make(map[*storageNode]struct{}, replicas)
 	sns := snb.sns
 	for i := 0; i < replicas; i++ {
+		// 从当前storage node开始，向后的replicas个storage node发送相同副本数据
 		idx := snIdx + i
 		attempts := 0
 		for {
+			// attempts代表当前副本的重试次数，超过sns的长度，代表没有可用的storage node
 			attempts++
 			if attempts > len(sns) {
 				if i == 0 {
@@ -238,14 +250,17 @@ func sendBufToReplicasNonblocking(snb *storageNodesBucket, br *bufRows, snIdx, r
 			}
 			sn := sns[idx]
 			idx++
+			// 如果取到的sn已经在map中，继续向后找
 			if _, ok := usedStorageNodes[sn]; ok {
 				// The br has been already replicated to sn. Skip it.
 				continue
 			}
+			// 使用当前的sn发送数据bufrows，如果发送失败，就继续循环，取下一个storageNode继续执行
 			if !sn.sendBufRowsNonblocking(br) {
 				// Cannot send data to sn. Go to the next sn.
 				continue
 			}
+			// 发送成功后将当前使用过的sn保存到map中
 			// Successfully sent data to sn.
 			usedStorageNodes[sn] = struct{}{}
 			break
@@ -300,6 +315,7 @@ func (sn *storageNode) sendBufRowsNonblocking(br *bufRows) bool {
 		return false
 	}
 	startTime := time.Now()
+	// 使用sn的buffer conn发送缓存数据
 	err := sendToConn(sn.bc, br.buf)
 	duration := time.Since(startTime)
 	sn.sendDurationSeconds.Add(duration.Seconds())
@@ -352,12 +368,15 @@ func sendToConn(bc *handshake.BufferedConn, buf []byte) error {
 	sizeBuf := sizeBufPool.Get()
 	defer sizeBufPool.Put(sizeBuf)
 	sizeBuf.B = encoding.MarshalUint64(sizeBuf.B[:0], uint64(len(buf)))
+	// 写入长度
 	if _, err := bc.Write(sizeBuf.B); err != nil {
 		return fmt.Errorf("cannot write data size %d: %w", len(buf), err)
 	}
+	// 写入实际数据
 	if _, err := bc.Write(buf); err != nil {
 		return fmt.Errorf("cannot write data with size %d: %w", len(buf), err)
 	}
+	// flush
 	if err := bc.Flush(); err != nil {
 		return fmt.Errorf("cannot flush data with size %d: %w", len(buf), err)
 	}
@@ -368,6 +387,7 @@ func sendToConn(bc *handshake.BufferedConn, buf []byte) error {
 	if err := bc.SetReadDeadline(deadline); err != nil {
 		return fmt.Errorf("cannot set read deadline for reading `ack` to vmstorage: %w", err)
 	}
+	// 从bc中读取1个字节
 	if _, err := io.ReadFull(bc, sizeBuf.B[:1]); err != nil {
 		return fmt.Errorf("cannot read `ack` from vmstorage: %w", err)
 	}
@@ -506,6 +526,7 @@ func setStorageNodesBucket(snb *storageNodesBucket) {
 // Call MustStop when the initialized vmstorage connections are no longer needed.
 func Init(addrs []string, hashSeed uint64) {
 	snb := initStorageNodes(addrs, hashSeed)
+	// 将stroage node bucket 保存在storageNodes变量中
 	setStorageNodesBucket(snb)
 }
 
@@ -529,6 +550,7 @@ func initStorageNodes(addrs []string, hashSeed uint64) *storageNodesBucket {
 			addr += ":8400"
 		}
 		sn := &storageNode{
+			// 创建与每个storageNode的tcp连接
 			dialer: netutil.NewTCPDialer(ms, "vminsert", addr, *vmstorageDialTimeout, *vmstorageUserTimeout),
 
 			stopCh: stopCh,
@@ -585,7 +607,7 @@ func initStorageNodes(addrs []string, hashSeed uint64) *storageNodesBucket {
 		stopCh:    stopCh,
 		wg:        &wg,
 	}
-
+	// 遍历storageNode 数组
 	for idx, sn := range sns {
 		wg.Add(1)
 		go func(sn *storageNode, idx int) {
