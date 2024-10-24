@@ -39,7 +39,9 @@ func InsertHandler(at *auth.Token, req *http.Request) error {
 func insertRows(at *auth.Token, rows []parser.Row, extraLabels []prompbmarshal.Label) error {
 	ctx := netstorage.GetInsertCtx()
 	defer netstorage.PutInsertCtx(ctx)
-
+	// 使用前必须先reset，获取storagenode bucekt
+	// 重置ctx.Labels
+	// 重置bufRows等
 	ctx.Reset() // This line is required for initializing ctx internals.
 	rowsTotal := 0
 	perTenantRows := make(map[auth.Token]int)
@@ -48,10 +50,12 @@ func insertRows(at *auth.Token, rows []parser.Row, extraLabels []prompbmarshal.L
 		r := &rows[i]
 		rowsTotal += len(r.Values)
 		ctx.Labels = ctx.Labels[:0]
+		// 添加label
 		for j := range r.Tags {
 			tag := &r.Tags[j]
 			ctx.AddLabelBytes(tag.Key, tag.Value)
 		}
+		// 添加额外的label
 		for j := range extraLabels {
 			label := &extraLabels[j]
 			ctx.AddLabel(label.Name, label.Value)
@@ -66,6 +70,7 @@ func insertRows(at *auth.Token, rows []parser.Row, extraLabels []prompbmarshal.L
 		ctx.SortLabelsIfNeeded()
 		atLocal := ctx.GetLocalAuthToken(at)
 		ctx.MetricNameBuf = storage.MarshalMetricNameRaw(ctx.MetricNameBuf[:0], atLocal.AccountID, atLocal.ProjectID, ctx.Labels)
+		// 通过labels获取hash环上的stroage node节点id
 		storageNodeIdx := ctx.GetStorageNodeIdx(atLocal, ctx.Labels)
 		values := r.Values
 		timestamps := r.Timestamps
@@ -74,6 +79,7 @@ func insertRows(at *auth.Token, rows []parser.Row, extraLabels []prompbmarshal.L
 		}
 		for j, value := range values {
 			timestamp := timestamps[j]
+			// 写入数据点到对应的storageNode
 			if err := ctx.WriteDataPointExt(storageNodeIdx, ctx.MetricNameBuf, timestamp, value); err != nil {
 				return err
 			}
