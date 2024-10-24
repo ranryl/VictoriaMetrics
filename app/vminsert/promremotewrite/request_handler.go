@@ -28,12 +28,14 @@ func InsertHandler(at *auth.Token, req *http.Request) error {
 		return err
 	}
 	isVMRemoteWrite := req.Header.Get("Content-Encoding") == "zstd"
+	// 在Parse中解析prometheus写过来的timeseries数据，然后将timeseries数据传给insertRows处理
 	return stream.Parse(req.Body, isVMRemoteWrite, func(tss []prompb.TimeSeries) error {
 		return insertRows(at, tss, extraLabels)
 	})
 }
 
 func insertRows(at *auth.Token, timeseries []prompb.TimeSeries, extraLabels []prompbmarshal.Label) error {
+	// 获取insert的上下文
 	ctx := netstorage.GetInsertCtx()
 	defer netstorage.PutInsertCtx(ctx)
 
