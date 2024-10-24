@@ -43,6 +43,7 @@ func (br *bufRows) reset() {
 
 func (br *bufRows) pushTo(snb *storageNodesBucket, sn *storageNode) error {
 	bufLen := len(br.buf)
+	// 将数据从br.buf中push到sn的bufrows中
 	err := sn.push(snb, br.buf, br.rows)
 	br.reset()
 	if err != nil {
@@ -131,6 +132,7 @@ func (ctx *InsertCtx) WriteDataPointExt(storageNodeIdx int, metricNameRaw []byte
 	snb := ctx.snb
 	sn := snb.sns[storageNodeIdx]
 	bufNew := storage.MarshalMetricRow(br.buf, metricNameRaw, timestamp, value)
+	// bufNew超过一定长度就推送到storage node中
 	if len(bufNew) >= maxBufSizePerStorageNode {
 		// Send buf to sn, since it is too big.
 		if err := br.pushTo(snb, sn); err != nil {
