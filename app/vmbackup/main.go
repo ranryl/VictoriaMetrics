@@ -37,8 +37,38 @@ var (
 	origin            = flag.String("origin", "", "Optional origin directory on the remote storage with old backup for server-side copying when performing full backup. This speeds up full backups")
 	concurrency       = flag.Int("concurrency", 10, "The number of concurrent workers. Higher concurrency may reduce backup duration")
 	maxBytesPerSecond = flagutil.NewBytes("maxBytesPerSecond", 0, "The maximum upload speed. There is no limit if it is set to 0")
+	disableHourly     = flagutil.NewBytes("disableHourly", 0, "disable hourly")
+	disableDaily      = flagutil.NewBytes("disableDaily", 0, "disable daily")
 )
 
+func Main() {
+	// go1.23.1 run main.go -snapshot.createURL=http://localhost:8428/snapshot/create -storageDataPath=/Users/ruilong.ran/Desktop/victoria-metrics-data/ -credsFilePath=../../credentials -customS3Endpoint=https://cos.ap-beijing.myqcloud.com -dst=s3://ad-cn-tcbj-doris-log-1306458289/latest
+	// go1.23.1 run main.go -credsFilePath=../../credentials -customS3Endpoint=https://cos.ap-beijing.myqcloud.com -origin=s3://ad-cn-tcbj-doris-log-1306458289/latest -dst=s3://ad-cn-tcbj-doris-log-1306458289/20241018
+
+	// s, err := gocron.NewScheduler()
+	// if err != nil {
+	// 	logger.Fatalf("cannot create scheduler: %s", err)
+	// }
+	// job, err := s.NewJob(
+	// 	gocron.DurationJob(1*time.Hour),
+	// 	gocron.NewTask(Main),
+	// )
+	// if err != nil {
+	// 	logger.Fatalf("cannot create newJob: %s", err)
+	// }
+	// fmt.Println(job.ID())
+	// s.Start()
+	// sigChan := make(chan os.Signal, 1)
+	// signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	// select {
+	// case <-sigChan:
+	// }
+	// err = s.Shutdown()
+	// if err != nil {
+	// 	logger.Fatalf("shutdown scheduler: %s", err)
+	// }
+
+}
 func main() {
 	// Write flags and help message to stdout, since it is easier to grep or pipe.
 	flag.CommandLine.SetOutput(os.Stdout)
@@ -48,7 +78,6 @@ func main() {
 	envflag.Parse()
 	buildinfo.Init()
 	logger.Init()
-
 	// Storing snapshot delete function to be able to call it in case
 	// of error since logger.Fatal will exit the program without
 	// calling deferred functions.
