@@ -116,6 +116,7 @@ func main() {
 		// See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/1672
 		hashSeed = 0xabcdef0123456789
 	}
+	// storage相关的初始化
 	netstorage.Init(*storageNodes, hashSeed)
 	logger.Infof("successfully initialized netstorage in %.3f seconds", time.Since(startTime).Seconds())
 
@@ -213,6 +214,7 @@ func requestHandler(w http.ResponseWriter, r *http.Request) bool {
 		httpserver.Errorf(w, r, "cannot parse path %q: %s", r.URL.Path, err)
 		return true
 	}
+	// 只处理包含insert 前缀的url
 	if p.Prefix != "insert" {
 		// This is not our link.
 		return false
